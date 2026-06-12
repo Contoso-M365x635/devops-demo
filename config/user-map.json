@@ -1,0 +1,9 @@
+{
+  "_comment": "Map Windows usernames to their environment folder. Add one entry per demo user.",
+  "_instructions": "Run 'echo %USERNAME%' in cmd on the Cloud PC to get the exact username value.",
+  "users": {
+    "DevOps-User1": "environments/user1",
+    "DevOps-User2": "environments/user2"
+  },
+  "default": ""
+}
