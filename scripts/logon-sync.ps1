@@ -1,7 +1,12 @@
 # logon-sync.ps1
 # ─────────────────────────────────────────────────────────────────────────────
 # PURPOSE : On Cloud PC login — clone or sync the devops-demo repo, then open
-#           VS Code at each user's assigned environment folder.
+#           VS Code at the folder mapped to the current user.
+#
+# USER DETECTION : Runs in user context (Intune: "Run as logged-on user = Yes")
+#                  so all user identity is available automatically via env vars.
+#                  Username → folder mapping lives in config/user-map.json
+#                  in the repo itself. Edit that file to add/change users.
 #
 # DEPLOY  : Intune → Devices → Scripts → Add PowerShell script
 #           - Run as logged-on user : Yes
@@ -9,22 +14,30 @@
 #           - Enforce signature check  : No
 # ─────────────────────────────────────────────────────────────────────────────
 
-$repoUrl   = "https://github.com/Contoso-M365x635/devops-demo.git"
-$repoPath  = "$env:USERPROFILE\Projects\devops-demo"
-$logFile   = "$env:USERPROFILE\Projects\devops-sync.log"
-$timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+$repoUrl  = "https://github.com/Contoso-M365x635/devops-demo.git"
+$repoPath = "$env:USERPROFILE\Projects\devops-demo"
+$logFile  = "$env:USERPROFILE\Projects\devops-sync.log"
 
-# Ensure Projects folder exists
 New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\Projects" | Out-Null
 
 function Log($msg) {
-    $entry = "$timestamp - $msg"
+    $entry = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - $msg"
     Add-Content $logFile $entry
     Write-Host $entry
 }
 
-Log "──────────────────────────────────────────"
-Log "Logon sync started for user: $env:USERNAME"
+Log "══════════════════════════════════════════"
+Log "Logon sync started"
+
+# ── Auto-detect current user identity ─────────────────────────────────────────
+$username  = $env:USERNAME                                    # e.g. DevOps-User1
+$upn       = whoami /upn 2>$null                              # e.g. user1@contoso.com
+$fullName  = (Get-LocalUser $username -ErrorAction SilentlyContinue).FullName
+
+Log "User      : $username"
+Log "UPN       : $upn"
+Log "Full name : $fullName"
+Log "Machine   : $env:COMPUTERNAME"
 
 # ── Clone or Pull ─────────────────────────────────────────────────────────────
 if (Test-Path "$repoPath\.git") {
@@ -37,38 +50,47 @@ if (Test-Path "$repoPath\.git") {
     Log "git clone: $result"
 }
 
+# ── Read user→folder mapping from repo config ─────────────────────────────────
+$configFile = "$repoPath\config\user-map.json"
+$folder     = $repoPath   # default: open repo root
+
+if (Test-Path $configFile) {
+    $config = Get-Content $configFile -Raw | ConvertFrom-Json
+
+    # Try exact username match first, then UPN prefix, then UPN full
+    $upnPrefix = ($upn -split "@")[0]
+    $match     = $config.users.$username `
+               ?? $config.users.$upnPrefix `
+               ?? $config.users.$upn
+
+    if ($match) {
+        $folder = Join-Path $repoPath ($match.Replace("/", "\"))
+        Log "Mapped '$username' → $match"
+    } elseif ($config.default -and $config.default -ne "") {
+        $folder = Join-Path $repoPath ($config.default.Replace("/", "\"))
+        Log "No specific mapping — using default: $($config.default)"
+    } else {
+        Log "No mapping found for '$username' — opening repo root"
+    }
+} else {
+    Log "WARNING: config/user-map.json not found — opening repo root"
+}
+
 # ── Resolve VS Code path ──────────────────────────────────────────────────────
 $code = $null
 if (Get-Command "code" -ErrorAction SilentlyContinue) {
     $code = "code"
 } elseif (Test-Path "$env:LOCALAPPDATA\Programs\Microsoft VS Code\bin\code.cmd") {
     $code = "$env:LOCALAPPDATA\Programs\Microsoft VS Code\bin\code.cmd"
-} else {
-    Log "WARNING: VS Code not found in PATH or default install location"
 }
 
-# ── Open VS Code at the right folder based on username ───────────────────────
-# UPDATE THESE to match your actual Entra ID usernames
-switch ($env:USERNAME.ToLower()) {
-
-    "devops-user1" {
-        $folder = "$repoPath\environments\user1"
-        Log "Opening VS Code for User1 → environments/user1 (Windows VM)"
-        if ($code) { Start-Process $code -ArgumentList $folder }
-    }
-
-    "devops-user2" {
-        $folder = "$repoPath\environments\user2"
-        Log "Opening VS Code for User2 → environments/user2 (VNet)"
-        if ($code) { Start-Process $code -ArgumentList $folder }
-    }
-
-    default {
-        # Fallback — open repo root for any other user
-        Log "Unknown user '$env:USERNAME' — opening VS Code at repo root"
-        if ($code) { Start-Process $code -ArgumentList $repoPath }
-    }
+# ── Open VS Code ──────────────────────────────────────────────────────────────
+if ($code) {
+    Log "Opening VS Code at: $folder"
+    Start-Process $code -ArgumentList $folder
+} else {
+    Log "WARNING: VS Code not found — skipping launch"
 }
 
 Log "Logon sync complete ✓"
-Log "──────────────────────────────────────────"
+Log "══════════════════════════════════════════"
