@@ -1,15 +1,11 @@
 # logon-sync.ps1
 # ─────────────────────────────────────────────────────────────────────────────
-# PURPOSE : On Cloud PC login — clone or sync the devops-demo repo, then open
-#           VS Code at the folder mapped to the current user.
-#
-# USER DETECTION : Runs in user context (Intune: "Run as logged-on user = Yes")
-#                  so all user identity is available automatically via env vars.
-#                  Username → folder mapping lives in config/user-map.json
-#                  in the repo itself. Edit that file to add/change users.
+# PURPOSE : On Cloud PC login — clone or sync the public devops-demo repo,
+#           then open VS Code at the folder mapped to the current user.
+#           No GitHub credentials required — repo is public.
 #
 # DEPLOY  : Intune → Devices → Scripts → Add PowerShell script
-#           - Run as logged-on user : Yes
+#           - Run as logged-on user    : Yes
 #           - Run in 64-bit PowerShell : Yes
 #           - Enforce signature check  : No
 # ─────────────────────────────────────────────────────────────────────────────
@@ -29,19 +25,16 @@ function Log($msg) {
 Log "══════════════════════════════════════════"
 Log "Logon sync started"
 
-# ── Auto-detect current user identity ─────────────────────────────────────────
-$username  = $env:USERNAME                                    # e.g. DevOps-User1
-$upn       = whoami /upn 2>$null                              # e.g. user1@contoso.com
-$fullName  = (Get-LocalUser $username -ErrorAction SilentlyContinue).FullName
+# ── Auto-detect current user (script runs in user context) ────────────────────
+$username = $env:USERNAME
+$upn      = (whoami /upn 2>$null)
+Log "User    : $username"
+Log "UPN     : $upn"
+Log "Machine : $env:COMPUTERNAME"
 
-Log "User      : $username"
-Log "UPN       : $upn"
-Log "Full name : $fullName"
-Log "Machine   : $env:COMPUTERNAME"
-
-# ── Clone or Pull ─────────────────────────────────────────────────────────────
+# ── Clone or Pull (no auth needed — public repo) ──────────────────────────────
 if (Test-Path "$repoPath\.git") {
-    Log "Repo exists — pulling latest changes..."
+    Log "Repo exists — pulling latest..."
     $result = git -C $repoPath pull origin main 2>&1
     Log "git pull: $result"
 } else {
@@ -50,41 +43,38 @@ if (Test-Path "$repoPath\.git") {
     Log "git clone: $result"
 }
 
-# ── Read user→folder mapping from repo config ─────────────────────────────────
+# ── Read user → folder mapping from repo config ───────────────────────────────
 $configFile = "$repoPath\config\user-map.json"
-$folder     = $repoPath   # default: open repo root
+$folder     = $repoPath   # fallback: open repo root
 
 if (Test-Path $configFile) {
-    $config = Get-Content $configFile -Raw | ConvertFrom-Json
-
-    # Try exact username match first, then UPN prefix, then UPN full
+    $config    = Get-Content $configFile -Raw | ConvertFrom-Json
     $upnPrefix = ($upn -split "@")[0]
-    $match     = $config.users.$username `
-               ?? $config.users.$upnPrefix `
-               ?? $config.users.$upn
+
+    # Try: exact username → UPN prefix → full UPN → default
+    $match = $config.users.$username `
+          ?? $config.users.$upnPrefix `
+          ?? $config.users.$upn
 
     if ($match) {
         $folder = Join-Path $repoPath ($match.Replace("/", "\"))
         Log "Mapped '$username' → $match"
-    } elseif ($config.default -and $config.default -ne "") {
+    } elseif ($config.default) {
         $folder = Join-Path $repoPath ($config.default.Replace("/", "\"))
-        Log "No specific mapping — using default: $($config.default)"
+        Log "Using default mapping → $($config.default)"
     } else {
-        Log "No mapping found for '$username' — opening repo root"
+        Log "No mapping for '$username' — opening repo root"
     }
 } else {
     Log "WARNING: config/user-map.json not found — opening repo root"
 }
 
-# ── Resolve VS Code path ──────────────────────────────────────────────────────
+# ── Resolve VS Code ───────────────────────────────────────────────────────────
 $code = $null
-if (Get-Command "code" -ErrorAction SilentlyContinue) {
-    $code = "code"
-} elseif (Test-Path "$env:LOCALAPPDATA\Programs\Microsoft VS Code\bin\code.cmd") {
-    $code = "$env:LOCALAPPDATA\Programs\Microsoft VS Code\bin\code.cmd"
-}
+if     (Get-Command "code" -ErrorAction SilentlyContinue)                              { $code = "code" }
+elseif (Test-Path "$env:LOCALAPPDATA\Programs\Microsoft VS Code\bin\code.cmd")         { $code = "$env:LOCALAPPDATA\Programs\Microsoft VS Code\bin\code.cmd" }
 
-# ── Open VS Code ──────────────────────────────────────────────────────────────
+# ── Launch VS Code ────────────────────────────────────────────────────────────
 if ($code) {
     Log "Opening VS Code at: $folder"
     Start-Process $code -ArgumentList $folder
