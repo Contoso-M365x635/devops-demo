@@ -1,0 +1,96 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "🚀 User1: Deploy Windows VM",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy", "Bypass",
+        "-File", "${workspaceFolder}/scripts/deploy-vm.ps1"
+      ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "🌐 User2: Deploy VNet",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy", "Bypass",
+        "-File", "${workspaceFolder}/scripts/deploy-vnet.ps1"
+      ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "🔑 Azure Login",
+      "type": "shell",
+      "command": "az login",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "📋 Show Azure Account",
+      "type": "shell",
+      "command": "az account show -o table && az account list -o table",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "💥 User1: Destroy Windows VM",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy", "Bypass",
+        "-Command",
+        "Set-Location '${workspaceFolder}/environments/user1'; terraform destroy"
+      ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "💥 User2: Destroy VNet",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy", "Bypass",
+        "-Command",
+        "Set-Location '${workspaceFolder}/environments/user2'; terraform destroy"
+      ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}
