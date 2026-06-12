@@ -19,6 +19,9 @@ terraform {
 
 provider "azurerm" {
   features {}
+  # Uses Azure CLI auth by default (az login)
+  # No credentials needed — token is picked up automatically
+  use_cli = true
 }
 
 module "windows_vm" {
