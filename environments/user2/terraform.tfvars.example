@@ -1,0 +1,12 @@
+# Copy this to terraform.tfvars and fill in values
+# DO NOT commit terraform.tfvars — it's in .gitignore
+
+resource_group_name = "rg-devops-demo-net"
+location            = "australiaeast"
+vnet_name           = "demo-vnet"
+address_space       = ["10.0.0.0/16"]
+subnets = {
+  "subnet-web" = "10.0.1.0/24"
+  "subnet-app" = "10.0.2.0/24"
+  "subnet-db"  = "10.0.3.0/24"
+}
