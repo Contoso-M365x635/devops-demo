@@ -3,15 +3,15 @@
   "_instructions": "Run 'echo %USERNAME%' in cmd on the Cloud PC to get the exact username.",
   "users": {
     "DevOps-User1": {
-      "folder": "environments/user1",
+      "folder": "DebraBerger",
       "launch": "scripts/logon-sync.ps1"
     },
     "DevOps-User2": {
-      "folder": "environments/user2",
+      "folder": "PradeepGupta",
       "launch": "scripts/logon-sync.ps1"
     },
     "Dev-User1": {
-      "folder": "developer",
+      "folder": "MeganBowen",
       "launch": "scripts/developer-launch.ps1"
     }
   },
