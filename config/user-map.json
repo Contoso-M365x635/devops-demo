@@ -1,22 +1,21 @@
 {
-  "_comment": "Map Windows usernames to environment folder AND launch script.",
-  "_instructions": "Run 'echo %USERNAME%' in cmd on the Cloud PC to get the exact username.",
+  "_comment": "Keys = actual Windows username (run 'echo %USERNAME%' in cmd). folder = path inside repo. launch = script to run.",
   "users": {
-    "DevOps-User1": {
-      "folder": "DebraBerger",
-      "launch": "scripts/logon-sync.ps1"
+    "DebraBerger": {
+      "folder": "environments/user1",
+      "launch": ""
     },
-    "DevOps-User2": {
-      "folder": "PradeepGupta",
-      "launch": "scripts/logon-sync.ps1"
+    "PradeepGupta": {
+      "folder": "environments/user2",
+      "launch": ""
     },
-    "Dev-User1": {
-      "folder": "MeganBowen",
+    "MeganBowen": {
+      "folder": "developer",
       "launch": "scripts/developer-launch.ps1"
     }
   },
   "default": {
     "folder": "",
-    "launch": "scripts/logon-sync.ps1"
+    "launch": ""
   }
 }
