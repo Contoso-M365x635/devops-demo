@@ -24,14 +24,29 @@ function Log($msg) {
 Log "======================================================"
 Log "Logon sync started | User: $env:USERNAME | Machine: $env:COMPUTERNAME"
 
+# Resolve git executable (scheduled tasks don't inherit user PATH)
+$git = $null
+$gitPaths = @(
+    "C:\Program Files\Git\bin\git.exe",
+    "C:\Program Files\Git\cmd\git.exe",
+    "C:\Program Files (x86)\Git\bin\git.exe"
+)
+foreach ($p in $gitPaths) { if (Test-Path $p) { $git = $p; break } }
+if (-not $git) {
+    # Try PATH as last resort
+    $git = (Get-Command git -ErrorAction SilentlyContinue)?.Source
+}
+if (-not $git) { Log "ERROR: git not found — aborting"; exit 1 }
+Log "Using git: $git"
+
 # Clone or Pull
 if (Test-Path "$repoPath\.git") {
     Log "Repo exists -- pulling latest..."
-    $result = git -C $repoPath pull origin main 2>&1
+    $result = & $git -C $repoPath pull origin main 2>&1
     Log "git pull: $($result -join ' ')"
 } else {
     Log "First login -- cloning repo..."
-    $result = git clone $repoUrl $repoPath 2>&1
+    $result = & $git clone $repoUrl $repoPath 2>&1
     Log "git clone: $($result -join ' ')"
 }
 
