@@ -48,13 +48,24 @@ if (-not $docker) {
     $result = & $docker compose -f "$devPath\docker-compose.yml" up -d 2>&1
     Log "docker compose: $($result -join ' ')"
 
-    # Pull model if not already present
+    # Pull models for Arena (needs 2+ models)
     $models = & $docker exec ollama ollama list 2>&1
-    if ($models -notmatch "phi3") {
-        Log "Pulling phi3:mini model (first run -- this may take a few minutes)..."
-        Start-Process -FilePath $docker -ArgumentList "exec ollama ollama pull phi3:mini" -WindowStyle Normal
+    $modelList = $models -join ' '
+
+    if ($modelList -notmatch "phi3") {
+        Log "Pulling phi3:mini (Model 1 for Arena)..."
+        & $docker exec ollama ollama pull phi3:mini 2>&1 | ForEach-Object { Log "ollama: $_" }
     } else {
-        Log "phi3:mini model already present"
+        Log "phi3:mini already present"
+    }
+
+    if ($modelList -notmatch "gemma2") {
+        Log "Pulling gemma2:2b (Model 2 for Arena)..."
+        # Pull in background so login doesn't block -- model available once download completes
+        Start-Process -FilePath $docker -ArgumentList "exec ollama ollama pull gemma2:2b" -WindowStyle Normal
+        Log "gemma2:2b download started in background (~1.6GB)"
+    } else {
+        Log "gemma2:2b already present"
     }
 
     # Wait for Open WebUI to be ready then open browser
