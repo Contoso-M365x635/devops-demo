@@ -84,7 +84,7 @@ elseif (Test-Path "$env:LOCALAPPDATA\Programs\Microsoft VS Code\bin\code.cmd")  
 elseif (Test-Path "C:\Program Files\Microsoft VS Code\bin\code.cmd")                 { $code = "C:\Program Files\Microsoft VS Code\bin\code.cmd" }
 
 if ($code) {
-    Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$code`" `"$devPath`""
+    Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$code $devPath`""
     Log "VS Code launched at: $devPath"
 } else {
     Log "WARNING: VS Code not found"
