@@ -117,7 +117,7 @@ if ($launchScript -and (Test-Path $launchScript)) {
     elseif (Test-Path "C:\Program Files\Microsoft VS Code\bin\code.cmd")                 { $code = "C:\Program Files\Microsoft VS Code\bin\code.cmd" }
 
     if ($code) {
-        Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$code`" `"$folder`""
+        Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$code $folder`""
         Log "VS Code launched at: $folder"
     } else {
         Log "WARNING: VS Code not found"
@@ -180,3 +180,4 @@ try {
 Write-Host "Setup complete!"
 Write-Host "Launcher: $launcherPath"
 Write-Host "User map: edit $env:USERPROFILE\Projects\devops-demo\config\user-map.json"
+
