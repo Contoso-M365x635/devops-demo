@@ -1,9 +1,22 @@
 {
-  "_comment": "Map Windows usernames to their environment folder. Add one entry per demo user.",
-  "_instructions": "Run 'echo %USERNAME%' in cmd on the Cloud PC to get the exact username value.",
+  "_comment": "Map Windows usernames to environment folder AND launch script.",
+  "_instructions": "Run 'echo %USERNAME%' in cmd on the Cloud PC to get the exact username.",
   "users": {
-    "DevOps-User1": "environments/user1",
-    "DevOps-User2": "environments/user2"
+    "DevOps-User1": {
+      "folder": "environments/user1",
+      "launch": "scripts/logon-sync.ps1"
+    },
+    "DevOps-User2": {
+      "folder": "environments/user2",
+      "launch": "scripts/logon-sync.ps1"
+    },
+    "Dev-User1": {
+      "folder": "developer",
+      "launch": "scripts/developer-launch.ps1"
+    }
   },
-  "default": ""
+  "default": {
+    "folder": "",
+    "launch": "scripts/logon-sync.ps1"
+  }
 }
