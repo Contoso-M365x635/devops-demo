@@ -31,16 +31,28 @@ if (-not $docker) {
 } else {
     Log "Using docker: $docker"
 
-    # Start Docker Desktop if not running
-    $dockerRunning = & $docker info 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Log "Docker Desktop not running -- starting it..."
-        $desktopExe = "C:\Program Files\Docker\Docker\Docker Desktop.exe"
-        if (Test-Path $desktopExe) {
-            Start-Process $desktopExe
-            Log "Waiting 20s for Docker Desktop to start..."
-            Start-Sleep -Seconds 20
+    # Start Docker Desktop and wait for it to be fully ready
+    Log "Checking Docker readiness..."
+    $dockerReady = $false
+    for ($i = 0; $i -lt 30; $i++) {
+        $dockerRunning = & $docker info 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Log "Docker is ready"
+            $dockerReady = $true
+            break
         }
+        if ($i -eq 0) {
+            Log "Docker not ready -- starting Docker Desktop..."
+            $desktopExe = "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+            if (Test-Path $desktopExe) {
+                Start-Process $desktopExe
+            }
+        }
+        Log "Waiting for Docker... (attempt $($i + 1) of 30)"
+        Start-Sleep -Seconds 2
+    }
+    if (-not $dockerReady) {
+        Log "WARNING: Docker still not ready after 60s -- proceeding anyway"
     }
 
     # Start the LLM stack
