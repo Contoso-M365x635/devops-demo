@@ -20,7 +20,6 @@ if (-not (Get-Command az -ErrorAction SilentlyContinue)) {
 }
 
 # Clear MSAL token cache FIRST -- prevents DPAPI decryption errors on Cloud PCs
-# The cache is encrypted with DPAPI which can be inaccessible in VS Code terminal sessions
 Write-Host "Clearing Azure CLI token cache (Cloud PC DPAPI fix)..." -ForegroundColor DarkGray
 $msalFiles = @(
     "$env:USERPROFILE\.azure\msal_token_cache.bin",
@@ -30,6 +29,8 @@ $msalFiles = @(
 foreach ($f in $msalFiles) { if (Test-Path $f) { Remove-Item $f -Force } }
 $ErrorActionPreference = "Continue"
 az logout 2>$null | Out-Null
+# Disable DPAPI encryption on token cache -- Cloud PC sessions cannot access DPAPI keys
+az config set core.encrypt_token_cache=false 2>$null | Out-Null
 $ErrorActionPreference = "Stop"
 Write-Host "Cache cleared. Logging in..." -ForegroundColor DarkGray
 Write-Host ""
