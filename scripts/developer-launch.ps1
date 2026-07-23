@@ -113,5 +113,67 @@ if ($code) {
     Log "WARNING: VS Code not found"
 }
 
+# ── Mobile Device (USB Redirection) ──────────────────────────────────────────
+Log "Checking for USB-redirected mobile device..."
+$adb = $null
+$adbPaths = @(
+    "C:\Program Files (x86)\Android\android-sdk\platform-tools\adb.exe",
+    "C:\Users\$env:USERNAME\AppData\Local\Android\Sdk\platform-tools\adb.exe",
+    "C:\Program Files\Android\platform-tools\adb.exe"
+)
+if (Get-Command adb -ErrorAction SilentlyContinue) { $adb = "adb" }
+else {
+    foreach ($p in $adbPaths) { if (Test-Path $p) { $adb = $p; break } }
+}
+
+if (-not $adb) {
+    Log "ADB not found -- skipping mobile device check (install-developer-tools.ps1 needed)"
+} else {
+    # Restart ADB server to pick up any USB-redirected devices
+    & $adb kill-server 2>&1 | Out-Null
+    & $adb start-server 2>&1 | Out-Null
+    Start-Sleep -Seconds 2
+
+    $devices = & $adb devices 2>&1
+    $connected = $devices | Select-String -Pattern "\tdevice$"
+
+    if ($connected) {
+        Log "Mobile device detected: $($connected -join ', ')"
+
+        # Launch scrcpy to mirror phone screen if available
+        $scrcpy = $null
+        if (Get-Command scrcpy -ErrorAction SilentlyContinue) { $scrcpy = "scrcpy" }
+        elseif (Test-Path "C:\Program Files\scrcpy\scrcpy.exe") { $scrcpy = "C:\Program Files\scrcpy\scrcpy.exe" }
+
+        if ($scrcpy) {
+            Log "Launching scrcpy (phone screen mirror)..."
+            Start-Process -FilePath $scrcpy -ArgumentList "--window-title `"Phone Mirror`" --stay-awake" -WindowStyle Normal
+            Log "scrcpy launched -- phone screen should appear on desktop"
+        } else {
+            Log "scrcpy not found -- phone detected but mirror not started (install-developer-tools.ps1 needed)"
+        }
+
+        # Also open Android Studio
+        $studio = $null
+        $studioPaths = @(
+            "C:\Program Files\Android\Android Studio\bin\studio64.exe",
+            "$env:LOCALAPPDATA\Programs\Android Studio\bin\studio64.exe"
+        )
+        foreach ($p in $studioPaths) { if (Test-Path $p) { $studio = $p; break } }
+
+        if ($studio) {
+            Log "Launching Android Studio..."
+            Start-Process -FilePath $studio
+            Log "Android Studio launched"
+        } else {
+            Log "Android Studio not found -- skipping"
+        }
+    } else {
+        Log "No mobile device detected via ADB (phone not connected or USB not redirected)"
+        Log "To connect: plug phone into local USB, enable Developer Mode + USB Debugging on phone"
+        Log "Then redirect USB in Windows App: Devices > [your phone] > Connect to remote PC"
+    }
+}
+
 Log "Developer launch complete"
 Log "------------------------------------------------------"

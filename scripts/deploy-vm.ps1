@@ -21,7 +21,7 @@ if (-not (Get-Command az -ErrorAction SilentlyContinue)) {
 
 # Check/trigger Azure login
 Write-Host "Checking Azure authentication..."
-$loginCheck = az account show 2>&1
+$loginCheck = az account show 2>$null
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""
     Write-Host "Not logged in -- launching Azure login..." -ForegroundColor Yellow
