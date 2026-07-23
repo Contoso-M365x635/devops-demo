@@ -19,49 +19,32 @@ if (-not (Get-Command az -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-# Check/trigger Azure login
-Write-Host "Checking Azure authentication..."
+# Clear MSAL token cache FIRST -- prevents DPAPI decryption errors on Cloud PCs
+# The cache is encrypted with DPAPI which can be inaccessible in VS Code terminal sessions
+Write-Host "Clearing Azure CLI token cache (Cloud PC DPAPI fix)..." -ForegroundColor DarkGray
+$msalFiles = @(
+    "$env:USERPROFILE\.azure\msal_token_cache.bin",
+    "$env:USERPROFILE\.azure\msal_token_cache.bin.lockfile",
+    "$env:USERPROFILE\.azure\accessTokens.json"
+)
+foreach ($f in $msalFiles) { if (Test-Path $f) { Remove-Item $f -Force } }
+$ErrorActionPreference = "Continue"
+az logout 2>$null | Out-Null
+$ErrorActionPreference = "Stop"
+Write-Host "Cache cleared. Logging in..." -ForegroundColor DarkGray
+Write-Host ""
+
+# Azure login -- always fresh in VS Code terminal session
+Write-Host "Launching Azure login (browser will open)..." -ForegroundColor Cyan
+az login
+if ($LASTEXITCODE -ne 0) { Write-Error "Azure login failed."; exit 1 }
+
 $ErrorActionPreference = "Continue"
 $loginCheck = az account show 2>$null
-$azLoggedIn = $LASTEXITCODE
 $ErrorActionPreference = "Stop"
-if ($azLoggedIn -ne 0) {
-    Write-Host ""
-    Write-Host "Not logged in -- launching Azure login..." -ForegroundColor Yellow
-    Write-Host "(A browser window will open)" -ForegroundColor Cyan
-    Write-Host ""
-    az login
-    if ($LASTEXITCODE -ne 0) { Write-Error "Azure login failed."; exit 1 }
-} else {
-    $account = $loginCheck | ConvertFrom-Json
-    Write-Host "Logged in as: $($account.user.name)" -ForegroundColor Green
-    Write-Host "Subscription: $($account.name) ($($account.id))"
-}
-
-# Verify token is actually usable by Terraform (DPAPI decryption check)
-# On Cloud PCs the MSAL token cache can fail with 'Key not valid for use in specified state'
-Write-Host "Verifying token is accessible..."
-$ErrorActionPreference = "Continue"
-$tokenTest = az account get-access-token 2>&1
-$tokenOk = $LASTEXITCODE
-$ErrorActionPreference = "Stop"
-if ($tokenOk -ne 0 -or ($tokenTest -join ' ') -match "Decryption failed|Key not valid") {
-    Write-Host "" 
-    Write-Host "Token cache error detected -- clearing and re-logging in..." -ForegroundColor Yellow
-    Write-Host "(This is a known Cloud PC/DPAPI issue -- browser will open again)" -ForegroundColor Cyan
-    Write-Host ""
-    # Clear the MSAL token cache
-    $msalCache = "$env:USERPROFILE\.azure\msal_token_cache.bin"
-    $msalEnc   = "$env:USERPROFILE\.azure\msal_token_cache.bin.lockfile"
-    if (Test-Path $msalCache) { Remove-Item $msalCache -Force }
-    if (Test-Path $msalEnc)   { Remove-Item $msalEnc   -Force }
-    az logout 2>$null
-    az login
-    if ($LASTEXITCODE -ne 0) { Write-Error "Azure login failed."; exit 1 }
-    Write-Host "Token refreshed successfully." -ForegroundColor Green
-} else {
-    Write-Host "Token OK." -ForegroundColor Green
-}
+$account = $loginCheck | ConvertFrom-Json
+Write-Host "Logged in as: $($account.user.name)" -ForegroundColor Green
+Write-Host "Subscription: $($account.name) ($($account.id))"
 
 # Show subscription and confirm
 Write-Host ""
@@ -81,7 +64,6 @@ $tf = $null
 if (Get-Command terraform -ErrorAction SilentlyContinue) {
     $tf = "terraform"
 } else {
-    # Common winget install locations
     $tfPaths = @(
         "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Hashicorp.Terraform_Microsoft.Winget.Source_8wekyb3d8bbwe\terraform.exe",
         "$env:ProgramFiles\HashiCorp\Terraform\terraform.exe",
@@ -92,7 +74,6 @@ if (Get-Command terraform -ErrorAction SilentlyContinue) {
 if (-not $tf) {
     Write-Host "Terraform not found -- installing via winget..." -ForegroundColor Yellow
     winget install HashiCorp.Terraform --silent --accept-package-agreements --accept-source-agreements
-    # Refresh PATH again after install
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
     if (Get-Command terraform -ErrorAction SilentlyContinue) {
         $tf = "terraform"
