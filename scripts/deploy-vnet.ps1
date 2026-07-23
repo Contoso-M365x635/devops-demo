@@ -38,6 +38,31 @@ if ($azLoggedIn -ne 0) {
     Write-Host "Subscription: $($account.name) ($($account.id))"
 }
 
+# Verify token is actually usable by Terraform (DPAPI decryption check)
+# On Cloud PCs the MSAL token cache can fail with 'Key not valid for use in specified state'
+Write-Host "Verifying token is accessible..."
+$ErrorActionPreference = "Continue"
+$tokenTest = az account get-access-token 2>&1
+$tokenOk = $LASTEXITCODE
+$ErrorActionPreference = "Stop"
+if ($tokenOk -ne 0 -or ($tokenTest -join ' ') -match "Decryption failed|Key not valid") {
+    Write-Host "" 
+    Write-Host "Token cache error detected -- clearing and re-logging in..." -ForegroundColor Yellow
+    Write-Host "(This is a known Cloud PC/DPAPI issue -- browser will open again)" -ForegroundColor Cyan
+    Write-Host ""
+    # Clear the MSAL token cache
+    $msalCache = "$env:USERPROFILE\.azure\msal_token_cache.bin"
+    $msalEnc   = "$env:USERPROFILE\.azure\msal_token_cache.bin.lockfile"
+    if (Test-Path $msalCache) { Remove-Item $msalCache -Force }
+    if (Test-Path $msalEnc)   { Remove-Item $msalEnc   -Force }
+    az logout 2>$null
+    az login
+    if ($LASTEXITCODE -ne 0) { Write-Error "Azure login failed."; exit 1 }
+    Write-Host "Token refreshed successfully." -ForegroundColor Green
+} else {
+    Write-Host "Token OK." -ForegroundColor Green
+}
+
 # Show subscription and confirm
 Write-Host ""
 Write-Host "Active subscription:" -ForegroundColor Cyan
