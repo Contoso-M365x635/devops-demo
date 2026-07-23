@@ -35,9 +35,10 @@ $ErrorActionPreference = "Stop"
 Write-Host "Cache cleared. Logging in..." -ForegroundColor DarkGray
 Write-Host ""
 
-# Azure login -- always fresh in VS Code terminal session
+# Azure login -- always fresh, target tenant explicitly to avoid multi-tenant discovery failures
+$tenantId = "4d738764-ab8a-419b-b7d6-eda38e82cdaf"
 Write-Host "Launching Azure login (browser will open)..." -ForegroundColor Cyan
-az login
+az login --tenant $tenantId
 if ($LASTEXITCODE -ne 0) { Write-Error "Azure login failed."; exit 1 }
 
 $ErrorActionPreference = "Continue"
