@@ -50,22 +50,44 @@ if ($confirm -ne "y") {
     exit 0
 }
 
-# Check Terraform
-if (-not (Get-Command terraform -ErrorAction SilentlyContinue)) {
+# Check Terraform -- refresh PATH first (winget installs may not update current session)
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+$tf = $null
+if (Get-Command terraform -ErrorAction SilentlyContinue) {
+    $tf = "terraform"
+} else {
+    # Common winget install locations
+    $tfPaths = @(
+        "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Hashicorp.Terraform_Microsoft.Winget.Source_8wekyb3d8bbwe\terraform.exe",
+        "$env:ProgramFiles\HashiCorp\Terraform\terraform.exe",
+        "C:\ProgramData\chocolatey\bin\terraform.exe"
+    )
+    foreach ($p in $tfPaths) { if (Test-Path $p) { $tf = $p; break } }
+}
+if (-not $tf) {
     Write-Host "Terraform not found -- installing via winget..." -ForegroundColor Yellow
     winget install HashiCorp.Terraform --silent --accept-package-agreements --accept-source-agreements
+    # Refresh PATH again after install
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+    if (Get-Command terraform -ErrorAction SilentlyContinue) {
+        $tf = "terraform"
+    } else {
+        Write-Error "Terraform installed but still not in PATH. Please close and reopen VS Code then retry."
+        exit 1
+    }
 }
+Write-Host "Using Terraform: $tf" -ForegroundColor Green
 
 # Terraform Init
 Write-Host ""
 Write-Host "-- Terraform Init --" -ForegroundColor Cyan
 Set-Location $EnvDir
-terraform init -upgrade
+& $tf init -upgrade
 
 # Terraform Plan
 Write-Host ""
 Write-Host "-- Terraform Plan --" -ForegroundColor Cyan
-terraform plan -out=tfplan
+& $tf plan -out=tfplan
 
 # Confirm and Apply
 Write-Host ""
@@ -74,12 +96,12 @@ $applyConfirm = Read-Host "Apply and deploy the VNet? (yes/no)"
 if ($applyConfirm -eq "yes") {
     Write-Host ""
     Write-Host "-- Terraform Apply --" -ForegroundColor Cyan
-    terraform apply tfplan
+    & $tf apply tfplan
     Write-Host ""
     Write-Host "VNet + Subnets deployed!" -ForegroundColor Green
     Write-Host ""
     Write-Host "Outputs:" -ForegroundColor Cyan
-    terraform output
+    & $tf output
 } else {
     Write-Host "Deployment cancelled."
 }
